@@ -1,8 +1,9 @@
-package com.cert;
+package com.games;
 
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -18,36 +19,65 @@ public class WordFinder {
 	private static String currentWord = "";
 	private static ArrayList<String> wordsToLog = new ArrayList<String>();
 	static {
-//		wordsToLog.add("same");
+//		wordsToLog.add("tooth");
 	}
 
-	private static boolean printLog(String word) {
+	private static boolean printLog() {
 		return wordsToLog.contains(currentWord);
 	}
 	
+	private static void printUsage() {
+		System.out.println("java -jar WordFinder.jar gridOfLetters firstWordLength gridSize optional:DictionaryDirPath");
+		System.exit(1);
+	}
 	/**
 	 * @param args
 	 */
 	public static void main(String[] args) {
-		String letters = "nhcaeefse";
-		int gridSize = 3;
-		int firstWordLength = 3;
 		
-		String dictionaryFileName = String.format("C:\\Ulises_codebase\\Dictionary%sLetters.txt", firstWordLength);
+		args = new String[]{"rphooteto","5","3", "C:\\Ulises_codebase"};
+		
+		
+		if(args == null || args.length < 3) {
+			printUsage();
+		}
+		
+		String letters = null;
+		int firstWordLength = -1;
+		int gridSize = -1;
+		String dictionaryDirPath = "C:\\Ulises_codebase";
+		File dictionaryDir = null;
+		try {
+			letters = args[0]; // "etnlictsa";
+			firstWordLength = Integer.parseInt(args[1]);
+			gridSize = Integer.parseInt(args[2]);
+			
+			if(args.length == 4) {
+				dictionaryDirPath = args[3];
+			}
+			
+			dictionaryDir = new File(dictionaryDirPath);
+		} catch (Exception e) {
+			System.out.println(e.getMessage());
+			printUsage();
+		}
+		
+		String dictionaryFileName = String.format("Dictionary%sLetters.txt", firstWordLength);
 		
 		ArrayList<String> dictionary = new ArrayList<String>();
-		File dictionarySourceFile = new File(dictionaryFileName);
+		File dictionarySourceFile = new File(dictionaryDir, dictionaryFileName);
 		
 		if (dictionarySourceFile.exists() == false) {
 			try {
 				dictionarySourceFile.createNewFile();
 				DictionaryUpdater d = new DictionaryUpdater(firstWordLength, dictionarySourceFile);
+				System.out.println("Downloading dictionary " + dictionarySourceFile);
 				d.downloadDictionary();
 			} catch (Exception e) {
 				e.printStackTrace();
 			}
 		}
-		 
+		
 		dictionary = loadDictionary(dictionarySourceFile);
 		GRID = loadGrid(letters, gridSize);
 		findWords(dictionary);
@@ -68,18 +98,19 @@ public class WordFinder {
 			boolean found = false;
 			initialLetterStartIndex = getIndexesByLetter(dictionaryWord.charAt(0));
 			for(int i = 0; i < initialLetterStartIndex.size() && found == false; i++) {
-				if(printLog(dictionaryWord)) {System.out.println(dictionaryWord + " " + dictionaryWord.charAt(0) + " " + initialLetterStartIndex.toString());}
+				if(printLog()) {System.out.println(dictionaryWord + " " + dictionaryWord.charAt(0) + " " + initialLetterStartIndex.toString());}
 				Coordinate coord = initialLetterStartIndex.get(i);
-				if(printLog(dictionaryWord)){System.out.println("InitialCoord " + coord);}
+				if(printLog()){System.out.println("InitialCoord " + coord);}
 				
 				usedCoordinates.add(coord);
 				
-				if(printLog("")) {System.out.println("UsedCoordinates " + usedCoordinates.toString());}
+				if(printLog()) {System.out.println("UsedCoordinates " + usedCoordinates.toString());}
 				found = findWord(dictionaryWord.substring(1), coord, false);
-				if(printLog("")){ System.out.println("outter found " + found);}
+				if(printLog()){ System.out.println("outter found " + found);}
 				if(found ) {
 					System.out.println(" ********Found word " + currentWord);
 				}
+				usedCoordinates.remove(coord);
 			}
 		}
 	}
@@ -94,20 +125,20 @@ public class WordFinder {
 		word = word.substring(1);
 		
 		ArrayList<Coordinate> adjacentLetters = getAdjacentIndexesByLetter(baseCoor.getX_POSITION(), baseCoor.getY_POSITON(), nextChar);
-		if(printLog(word)) {System.out.println("Adjacent Free letters " + nextChar + adjacentLetters.toString());}
+		if(printLog()) {System.out.println("Adjacent Free letters " + nextChar + adjacentLetters.toString());}
 		boolean found2 = false;
 		for (int i = 0 ; found2 == false && i < adjacentLetters.size(); i++) {
 			Coordinate coord = adjacentLetters.get(i);
 			usedCoordinates.add(coord);
 			
-			if(printLog(word)){System.out.println("Adding to used " + nextChar + coord);}
+			if(printLog()){System.out.println("Adding to used " + nextChar + coord);}
 			found2 = findWord(word, coord, true);
 			if(found2 == false ) {
 				 usedCoordinates.remove(coord);
-				 if(printLog(word)){System.out.println("Removing from used " + nextChar + coord);}
+//				 if(printLog()){System.out.println("Removing from used " + nextChar + coord);}
 			}
 		}
-		if(printLog("")) {System.out.println("found2 " + found2);}
+//		if(printLog()) {System.out.println("found2 " + found2);}
 		return found2;
 	}
 	

@@ -115,19 +115,25 @@ public class WordFinder {
 		}
 	}
 	
+	/*
+	** It will try to find the first letter in this @word around the given @baseCoor
+	** each time it finds the word and will add the found coord into the usedCoordinates list
+	** it will call itself again with the letter that was found removed.
+	** returns true if all the letters where found, false otherwise
+	**/ 
 	private static boolean findWord(String word, Coordinate baseCoor, boolean found) {
 		
 		if (word == null ) {
 			return false;
 		}
 		
+		//It means that the process was able to
+		//find all the letters in this word thus is empty now.
 		if(word.isEmpty()) {
 			return true;
 		}
 		
-		
 		Character nextChar = word.charAt(0);
-		word = word.substring(1);
 		
 		ArrayList<Coordinate> adjacentLetters = getAdjacentIndexesByLetter(baseCoor.getX_POSITION(), baseCoor.getY_POSITON(), nextChar);
 		if(printLog()) {System.out.println("Adjacent Free letters " + nextChar + adjacentLetters.toString());}
@@ -137,7 +143,7 @@ public class WordFinder {
 			usedCoordinates.add(coord);
 			
 			if(printLog()){System.out.println("Adding to used " + nextChar + coord);}
-			found2 = findWord(word, coord, true);
+			found2 = findWord(word.substring(1), coord, true);
 			if(found2 == false ) {
 				 usedCoordinates.remove(coord);
 //				 if(printLog()){System.out.println("Removing from used " + nextChar + coord);}

@@ -117,9 +117,14 @@ public class WordFinder {
 	
 	private static boolean findWord(String word, Coordinate baseCoor, boolean found) {
 		
-		if(word == null || word.isEmpty()) {
+		if (word == null ) {
+			return false;
+		}
+		
+		if(word.isEmpty()) {
 			return true;
 		}
+		
 		
 		Character nextChar = word.charAt(0);
 		word = word.substring(1);

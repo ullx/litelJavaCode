@@ -22,15 +22,11 @@ public class DictionaryUpdater {
 	Pattern wordCounterRegex = Pattern.compile("([0-9]+\\swords)");
 	Pattern wordsGetter = Pattern.compile(">[a-z]+<");
 	String abc = "abcdefghijklmnopqrstuvwxyz";
-	String SPANISH = "http://www.laspalabras.net/liste_mots_en.php?q=%s&lettres=%s";
-	String ENGLISH = "http://www.morewords.com/wordsbylength/%s%s/";
+	String SPANISH_DICT_URL = "http://www.laspalabras.net/liste_mots_en.php?q=%s&lettres=%s";
+	String ENGLISH_DICT_URL = "http://www.morewords.com/wordsbylength/%s%s/";
 	int WORD_LENGTH = 0;
 	File SAVE_FILE = null;
 	LANG language = LANG.ENGLISH;
-	
-	enum LANG {
-		SPANISH, ENGLISH;
-	}
 	
 	public static void main(String[] args) {
 		 DictionaryUpdater d = new DictionaryUpdater(4, new File("C:\\Ulises_codebase\\Dictionary4LettersSpanish.txt"));
@@ -50,7 +46,12 @@ public class DictionaryUpdater {
 
 	private URL getURL(char ch, int wordLength) {
 		URL url = null;
-		String createdURL = String.format(SPANISH,ch, wordLength);
+		String createdURL = null;
+		switch(language) {
+			case SPANISH:createdURL = String.format(SPANISH_DICT_URL, ch, wordLength);break;
+			case ENGLISH:createdURL = String.format(ENGLISH_DICT_URL, wordLength, ch);break;
+		}
+		
 		System.out.println("CreatedURL " + createdURL);
 		try {
 			url = new URL(createdURL);

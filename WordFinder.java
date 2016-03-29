@@ -1,13 +1,18 @@
 package com.games;
 
+import java.io.BufferedInputStream;
 import java.io.BufferedReader;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileReader;
 import java.io.IOException;
+import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
+
+import com.games.DictionaryUpdater.LANG;
 
 public class WordFinder {
 
@@ -19,7 +24,7 @@ public class WordFinder {
 	private static String currentWord = "";
 	private static ArrayList<String> wordsToLog = new ArrayList<String>();
 	static {
-//		wordsToLog.add("tooth");
+//		wordsToLog.add("conejo");
 	}
 
 	private static boolean printLog() {
@@ -27,7 +32,7 @@ public class WordFinder {
 	}
 	
 	private static void printUsage() {
-		System.out.println("java -jar WordFinder.jar gridOfLetters firstWordLength gridSize optional:DictionaryDirPath");
+		System.out.println("java -jar WordFinder.jar gridOfLetters firstWordLength gridSize language:[e|s] optional:DictionaryDirPath");
 		System.exit(1);
 	}
 	/**
@@ -35,8 +40,7 @@ public class WordFinder {
 	 */
 	public static void main(String[] args) {
 		
-		args = new String[]{"rphooteto","5","3", "C:\\Ulises_codebase"};
-		
+		args = new String[]{"alo-psd-run-ofa-","8","4", "s"};
 		
 		if(args == null || args.length < 3) {
 			printUsage();
@@ -47,30 +51,50 @@ public class WordFinder {
 		int gridSize = -1;
 		String dictionaryDirPath = "C:\\Ulises_codebase";
 		File dictionaryDir = null;
+		
+		File dictionarySourceFile = null;
+		String lang = null;
+		DictionaryUpdater.LANG language = LANG.ENGLISH;  
+		
 		try {
 			letters = args[0]; // "etnlictsa";
 			firstWordLength = Integer.parseInt(args[1]);
 			gridSize = Integer.parseInt(args[2]);
 			
-			if(args.length == 4) {
-				dictionaryDirPath = args[3];
+			lang = args[3];
+			language = lang.equals("s") ? LANG.SPANISH : LANG.ENGLISH;
+			
+			String defaultDictionaryFileName = String.format("Dictionary%sLetters", firstWordLength);
+			if(language == LANG.SPANISH) {
+				defaultDictionaryFileName += "Spanish";
+			}
+			defaultDictionaryFileName +=".txt";
+			
+			if(args.length == 5) {
+				File givenPath = new File(args[4]);
+				if(givenPath.isDirectory()) {
+					dictionarySourceFile = new File(givenPath, defaultDictionaryFileName);
+				} else if(givenPath.isFile()) {
+					dictionarySourceFile = givenPath;
+				}
+				
+			} else {
+				dictionaryDir = new File(dictionaryDirPath);
+				dictionarySourceFile = new File(dictionaryDir, defaultDictionaryFileName);
 			}
 			
-			dictionaryDir = new File(dictionaryDirPath);
 		} catch (Exception e) {
 			System.out.println(e.getMessage());
 			printUsage();
 		}
 		
-		String dictionaryFileName = String.format("Dictionary%sLetters.txt", firstWordLength);
-		
 		ArrayList<String> dictionary = new ArrayList<String>();
-		File dictionarySourceFile = new File(dictionaryDir, dictionaryFileName);
 		
 		if (dictionarySourceFile.exists() == false) {
 			try {
 				dictionarySourceFile.createNewFile();
-				DictionaryUpdater d = new DictionaryUpdater(firstWordLength, dictionarySourceFile);
+				
+				DictionaryUpdater d = new DictionaryUpdater(firstWordLength, dictionarySourceFile, language);
 				System.out.println("Downloading dictionary " + dictionarySourceFile);
 				d.downloadDictionary();
 			} catch (Exception e) {
@@ -78,6 +102,7 @@ public class WordFinder {
 			}
 		}
 		
+		System.out.println("Using dictionary " + dictionarySourceFile);
 		dictionary = loadDictionary(dictionarySourceFile);
 		GRID = loadGrid(letters, gridSize);
 		findWords(dictionary);
@@ -115,25 +140,14 @@ public class WordFinder {
 		}
 	}
 	
-	/*
-	** It will try to find the first letter in this @word around the given @baseCoor
-	** each time it finds the word and will add the found coord into the usedCoordinates list
-	** it will call itself again with the letter that was found removed.
-	** returns true if all the letters where found, false otherwise
-	**/ 
 	private static boolean findWord(String word, Coordinate baseCoor, boolean found) {
 		
-		if (word == null ) {
-			return false;
-		}
-		
-		//It means that the process was able to
-		//find all the letters in this word thus is empty now.
-		if(word.isEmpty()) {
+		if(word == null || word.isEmpty()) {
 			return true;
 		}
 		
 		Character nextChar = word.charAt(0);
+		word = word.substring(1);
 		
 		ArrayList<Coordinate> adjacentLetters = getAdjacentIndexesByLetter(baseCoor.getX_POSITION(), baseCoor.getY_POSITON(), nextChar);
 		if(printLog()) {System.out.println("Adjacent Free letters " + nextChar + adjacentLetters.toString());}
@@ -143,7 +157,7 @@ public class WordFinder {
 			usedCoordinates.add(coord);
 			
 			if(printLog()){System.out.println("Adding to used " + nextChar + coord);}
-			found2 = findWord(word.substring(1), coord, true);
+			found2 = findWord(word, coord, true);
 			if(found2 == false ) {
 				 usedCoordinates.remove(coord);
 //				 if(printLog()){System.out.println("Removing from used " + nextChar + coord);}
@@ -157,21 +171,23 @@ public class WordFinder {
 	
 	private static ArrayList<String> loadDictionary(File path) {
 		ArrayList<String> a = new ArrayList<String>();
-		BufferedReader r = null;
+		BufferedReader reader = null;
+		InputStreamReader input = null;
 		try {
-			//BufferedInputStream r = new BufferedInputStream(new FileInputStream(path));
-			r = new BufferedReader(new FileReader(path));
-			String l;
-			while((l = r.readLine()) != null ) {
-				 l = l.trim().toLowerCase().replace(" ", "");
-				 a.add(l);
+			input = new InputStreamReader(new FileInputStream(path), "UTF-8");
+			reader = new BufferedReader(input);
+			String line;
+			
+			while((line = reader.readLine()) != null ) {
+				 line = line.trim().toLowerCase().replace(" ", "");
+				 a.add(line);
 			}
 		} catch (Exception e) {
 			e.printStackTrace();
 		}finally {
-			if( r != null) {
+			if( reader != null) {
 				try {
-					r.close();
+					reader.close();
 				} catch (Exception e2) {}
 			}
 		}

@@ -1,23 +1,15 @@
 package com.games;
 
-import java.io.BufferedInputStream;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.Map;
-
-import com.games.DictionaryUpdater.LANG;
 
 public class WordFinder {
 
-	public static Map<Character, Integer[]> usedPositions = new HashMap<Character, Integer[]>();
-	public static ArrayList<Coordinate> usedCoordinates = new ArrayList<Coordinate>();
+	public static ArrayList<Coordinate> USED_COORDINATES = new ArrayList<Coordinate>();
 	public static Character[][] GRID = null;
 	
 	//logging purposes
@@ -32,110 +24,79 @@ public class WordFinder {
 	}
 	
 	private static void printUsage() {
-		System.out.println("java -jar WordFinder.jar gridOfLetters firstWordLength gridSize language:[e|s] optional:DictionaryDirPath");
-		System.exit(1);
+		System.out.println("java -jar WordFinder.jar lettersGrid wordLength language[e|s] [dictionaryDirPath]\n");
+		System.out.println("lettersGrid  Required string of letters where the words are");
+		System.out.println("             are to be found.");
+		System.out.println("wordLength   Required a number indicating the length of");
+		System.out.println("             the word to find." );
+		System.out.println("gridSize     Required just a number indicating the size");
+		System.out.println("             of the grid, if the grid is of 3x3 just put 3.");
+		System.out.println("language     Required [e|s] e: english s: spanish.");
+		System.out.println("[dictionaryDirPath  Optional the path to a Dir where to");
+		System.out.println("                    find the dictionaries or a path to");
+		System.out.println("                    a file to use as dictionary.");
+		System.exit(0);
 	}
-	/**
-	 * @param args
-	 */
-	public static void main(String[] args) {
-		
-		args = new String[]{"alo-psd-run-ofa-","8","4", "s"};
-		
-		if(args == null || args.length < 3) {
-			printUsage();
-		}
-		
-		String letters = null;
-		int firstWordLength = -1;
-		int gridSize = -1;
-		String dictionaryDirPath = "C:\\Ulises_codebase";
-		File dictionaryDir = null;
-		
-		File dictionarySourceFile = null;
-		String lang = null;
-		DictionaryUpdater.LANG language = LANG.ENGLISH;  
-		
-		try {
-			letters = args[0]; // "etnlictsa";
-			firstWordLength = Integer.parseInt(args[1]);
-			gridSize = Integer.parseInt(args[2]);
-			
-			lang = args[3];
-			language = lang.equals("s") ? LANG.SPANISH : LANG.ENGLISH;
-			
-			String defaultDictionaryFileName = String.format("Dictionary%sLetters", firstWordLength);
-			if(language == LANG.SPANISH) {
-				defaultDictionaryFileName += "Spanish";
-			}
-			defaultDictionaryFileName +=".txt";
-			
-			if(args.length == 5) {
-				File givenPath = new File(args[4]);
-				if(givenPath.isDirectory()) {
-					dictionarySourceFile = new File(givenPath, defaultDictionaryFileName);
-				} else if(givenPath.isFile()) {
-					dictionarySourceFile = givenPath;
-				}
-				
-			} else {
-				dictionaryDir = new File(dictionaryDirPath);
-				dictionarySourceFile = new File(dictionaryDir, defaultDictionaryFileName);
-			}
-			
-		} catch (Exception e) {
-			System.out.println(e.getMessage());
-			printUsage();
-		}
-		
-		ArrayList<String> dictionary = new ArrayList<String>();
+	
+	public WordFinder(String lettersGrid, int letterLength, int gridSize, LANG language, File dictionarySourceFile) {
 		
 		if (dictionarySourceFile.exists() == false) {
 			try {
 				dictionarySourceFile.createNewFile();
-				
-				DictionaryUpdater d = new DictionaryUpdater(firstWordLength, dictionarySourceFile, language);
-				System.out.println("Downloading dictionary " + dictionarySourceFile);
+
+				DictionaryUpdater d = new DictionaryUpdater(letterLength, dictionarySourceFile, language);
+				System.out.println("Downloading dictionary "+ dictionarySourceFile);
 				d.downloadDictionary();
 			} catch (Exception e) {
 				e.printStackTrace();
 			}
 		}
 		
-		System.out.println("Using dictionary " + dictionarySourceFile);
-		dictionary = loadDictionary(dictionarySourceFile);
-		GRID = loadGrid(letters, gridSize);
-		findWords(dictionary);
+		GRID = loadGrid(lettersGrid, gridSize);
+		findWords(dictionarySourceFile);
 	}
-
-	private static void findWords(ArrayList<String> dictionary) {
-	/* *
-	  	slide
-		l[0,0]s[0,1]e[0,2]
-		l[1,0]i[1,1]d[1,2]
-		l[2,0]o[2,1]d[2,2]
-	 * */	
-		
+	
+	private void findWords(File dictionarySource) {
+		System.out.println("Using dictionary " + dictionarySource);
+		BufferedReader reader = null;
+		InputStreamReader input = null;
 		ArrayList<Coordinate> initialLetterStartIndex = new ArrayList<Coordinate>();
-		for(String dictionaryWord : dictionary ) {
-			usedCoordinates.clear();
-			currentWord = dictionaryWord;
-			boolean found = false;
-			initialLetterStartIndex = getIndexesByLetter(dictionaryWord.charAt(0));
-			for(int i = 0; i < initialLetterStartIndex.size() && found == false; i++) {
-				if(printLog()) {System.out.println(dictionaryWord + " " + dictionaryWord.charAt(0) + " " + initialLetterStartIndex.toString());}
-				Coordinate coord = initialLetterStartIndex.get(i);
-				if(printLog()){System.out.println("InitialCoord " + coord);}
-				
-				usedCoordinates.add(coord);
-				
-				if(printLog()) {System.out.println("UsedCoordinates " + usedCoordinates.toString());}
-				found = findWord(dictionaryWord.substring(1), coord, false);
-				if(printLog()){ System.out.println("outter found " + found);}
-				if(found ) {
-					System.out.println(" ********Found word " + currentWord);
+		try {
+			input = new InputStreamReader(new FileInputStream(dictionarySource), "UTF-8");
+			reader = new BufferedReader(input);
+			String dictionaryWord;
+
+			while ((dictionaryWord = reader.readLine()) != null) {
+				dictionaryWord = dictionaryWord.trim().toLowerCase().replace(" ", "");
+
+				USED_COORDINATES.clear();
+				currentWord = dictionaryWord;
+				boolean found = false;
+				initialLetterStartIndex = getIndexesByLetter(dictionaryWord.charAt(0));
+				for (int i = 0; i < initialLetterStartIndex.size()
+						&& found == false; i++) {
+					if (printLog()) {System.out.println(dictionaryWord + " "+ dictionaryWord.charAt(0) + " "+ initialLetterStartIndex.toString());}
+					Coordinate coord = initialLetterStartIndex.get(i);
+					if (printLog()) {System.out.println("InitialCoord " + coord);}
+
+					USED_COORDINATES.add(coord);
+
+					if (printLog()) {System.out.println("UsedCoordinates " + USED_COORDINATES.toString());}
+					found = findWord(dictionaryWord.substring(1), coord, false);
+					if (printLog()) { System.out.println("outter found " + found); }
+					if (found) { System.out.println(" ********Found word " + currentWord); }
+					
+					USED_COORDINATES.remove(coord);
 				}
-				usedCoordinates.remove(coord);
+			}
+		} catch (Exception e) {
+			e.printStackTrace();
+		} finally {
+			if (reader != null) {
+				try {
+					reader.close();
+				} catch (Exception e2) {
+				}
 			}
 		}
 	}
@@ -154,44 +115,17 @@ public class WordFinder {
 		boolean found2 = false;
 		for (int i = 0 ; found2 == false && i < adjacentLetters.size(); i++) {
 			Coordinate coord = adjacentLetters.get(i);
-			usedCoordinates.add(coord);
+			USED_COORDINATES.add(coord);
 			
 			if(printLog()){System.out.println("Adding to used " + nextChar + coord);}
 			found2 = findWord(word, coord, true);
 			if(found2 == false ) {
-				 usedCoordinates.remove(coord);
+				 USED_COORDINATES.remove(coord);
 //				 if(printLog()){System.out.println("Removing from used " + nextChar + coord);}
 			}
 		}
 //		if(printLog()) {System.out.println("found2 " + found2);}
 		return found2;
-	}
-	
-	
-	
-	private static ArrayList<String> loadDictionary(File path) {
-		ArrayList<String> a = new ArrayList<String>();
-		BufferedReader reader = null;
-		InputStreamReader input = null;
-		try {
-			input = new InputStreamReader(new FileInputStream(path), "UTF-8");
-			reader = new BufferedReader(input);
-			String line;
-			
-			while((line = reader.readLine()) != null ) {
-				 line = line.trim().toLowerCase().replace(" ", "");
-				 a.add(line);
-			}
-		} catch (Exception e) {
-			e.printStackTrace();
-		}finally {
-			if( reader != null) {
-				try {
-					reader.close();
-				} catch (Exception e2) {}
-			}
-		}
-		return a;
 	}
 	
 	private static Character[][] loadGrid(String letters, int size) {
@@ -247,7 +181,7 @@ public class WordFinder {
 						Integer[] newPosition = new Integer[] { x + dx, y + dy };
 //						Integer[] usedPosition = usedPositions.get(ch);
 						Coordinate coordinate = new Coordinate(newPosition);
-						if (ch.equals(charToFind) && usedCoordinates.contains(coordinate) == false) {
+						if (ch.equals(charToFind) && USED_COORDINATES.contains(coordinate) == false) {
 							cords.add(coordinate);
 						}
 					}
@@ -258,50 +192,79 @@ public class WordFinder {
 		}
 		return cords;
 	}
-	
-	public static Map<Character, ArrayList<Coordinate>> getAdjacentFreeLetters(int x, int y) {
-		Map<Character, ArrayList<Coordinate>> result = new HashMap<Character, ArrayList<Coordinate>>();
-		
-		for (int dx = -1; dx <= 1; ++dx) {
-			for (int dy = -1; dy <= 1; ++dy) {
-				try {
-					if (dx != 0 || dy != 0) {
 
-						Character ch = GRID[x + dx][y + dy];
-						Integer[] newPosition = new Integer[] { x + dx, y + dy };
-						
-						if (usedPositions.containsKey(ch)) {
-							Integer[] usedCoords = usedPositions.get(ch);
-							if (Arrays.equals(usedCoords, newPosition) == false) {
-								
-								if(result.containsKey(ch)) {
-									result.get(ch).add(new Coordinate(newPosition));
-								} else {
-									ArrayList<Coordinate> co = new ArrayList<Coordinate>();
-									co.add(new Coordinate(newPosition));
-									result.put(ch, co);
-								}
-								
-							} else {
-								// System.out.println("This position was already in use "
-								// + Arrays.toString(newPosition));
-							}
-
-							// result.Add(grid[x + dx][y + dy]);
-						} else {
-							ArrayList<Coordinate> co = new ArrayList<Coordinate>();
-							co.add(new Coordinate(newPosition));
-							result.put(ch, co);
-						}
-					}
-				} catch (IndexOutOfBoundsException e) {
-					// System.out.println("Out of bounds");
-				}
-			}
+	/**
+	 * @param args
+	 */
+	public static void main(String[] args) {
+//		args = new String[]{"anoroaeetllkpabj","7","4", "s"};
+		if (args == null || args.length < 3) {
+			System.err.println("Not enough arguments.");
+			printUsage();
 		}
-		return result;
+
+		String defaultPath = "C:\\Ulises_codebase";
+		try {
+			String lettersGrid = args[0];
+			
+			int wordLength = Integer.parseInt(args[1]);
+			int gridSize = Integer.parseInt(args[2]);
+			
+			LANG lang = LANG.getEnum(args[3]);
+			
+			String defaultDictionaryPath = String.format("Dictionary%sLetters", wordLength);
+			if (lang == LANG.SPANISH) {
+				defaultDictionaryPath += "Spanish";
+			}
+			defaultDictionaryPath += ".txt";
+			
+			File dictionarySourceFile = null;
+			if (args.length == 5) {
+				File givenPath = new File(args[4]);
+				if (givenPath.isDirectory()) {
+					dictionarySourceFile = new File(givenPath, defaultDictionaryPath);
+				} else if (givenPath.isFile()) {
+					dictionarySourceFile = givenPath;
+				} else {
+					throw new IOException("Can't find the given file to load the dictionary: " + args[4]);
+				}
+			} else {
+				File dictionaryDir = new File(defaultPath);
+				dictionarySourceFile = new File(dictionaryDir,defaultDictionaryPath);
+			}
+
+			new WordFinder(lettersGrid, wordLength, gridSize, lang, dictionarySourceFile);
+		} catch (Exception e) {
+			System.err.println(e.getMessage());
+			printUsage();
+		}
+	}
+
+}
+
+enum LANG {
+	SPANISH("s"), ENGLISH("e");
+	
+	private final String value;
+	
+	private LANG(String s) {
+		this.value = s;
 	}
 	
+	public String value() {
+		return this.value;
+	}
+	
+	public static LANG getEnum(String name) {
+		for(LANG l : values()) {
+			if(l.value().equals(name)) {
+				return l;
+			}
+		}
+		return null; 
+	}
 }
+
+
 
 

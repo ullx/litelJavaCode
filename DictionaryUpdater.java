@@ -2,143 +2,177 @@ package com.games;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
+import java.io.Closeable;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
-import java.net.ContentHandler;
+import java.io.Reader;
+import java.net.CookieHandler;
+import java.net.CookieManager;
+import java.net.CookiePolicy;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.URLConnection;
-import java.util.Scanner;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
-public class DictionaryUpdater {
-
-	Pattern wordCounterRegex = Pattern.compile("([0-9]+\\swords)");
-	Pattern wordsGetter = Pattern.compile(">[a-z]+<");
-	String abc = "abcdefghijklmnopqrstuvwxyz";
-	String SPANISH_DICT_URL = "http://www.laspalabras.net/liste_mots_en.php?q=%s&lettres=%s";
-	String ENGLISH_DICT_URL = "http://www.morewords.com/wordsbylength/%s%s/";
-	int WORD_LENGTH = 0;
-	File SAVE_FILE = null;
-	LANG language = LANG.ENGLISH;
+public abstract class DictionaryUpdater {
 	
-	public static void main(String[] args) {
-		 DictionaryUpdater d = new DictionaryUpdater(4, new File("C:\\Ulises_codebase\\Dictionary4LettersSpanish.txt"));
-		 d.downloadDictionary();
-	}
-
-	public DictionaryUpdater(int wordlength, File saveFile) {
-		WORD_LENGTH = wordlength;
+	private String alphabet = "abcdefghijklmnopqrstuvwxyz";
+	protected int WORD_LENGTH = 0;
+	private File SAVE_FILE = null;
+	
+	protected DictionaryUpdater(int wordlength, File saveFile) {
+		this.WORD_LENGTH = wordlength;
 		this.SAVE_FILE = saveFile;
 	}
 	
-	public DictionaryUpdater(int wordlength, File saveFile, LANG language) {
-		WORD_LENGTH = wordlength;
-		this.SAVE_FILE = saveFile;
-		this.language = language;
-	}
-
-	private URL getURL(char ch, int wordLength) {
-		URL url = null;
-		String createdURL = null;
-		switch(language) {
-			case SPANISH:createdURL = String.format(SPANISH_DICT_URL, ch, wordLength);break;
-			case ENGLISH:createdURL = String.format(ENGLISH_DICT_URL, wordLength, ch);break;
+	public static DictionaryUpdater getDictionaryUpdater(LANG language, int wordlength, File saveFile) {
+		DictionaryUpdater updater = null; 
+		if (language == LANG.SPANISH) {
+			updater = new DictionaryUpdaterSpanish2(wordlength, saveFile);
+		} else {
+			updater = new DictionaryUpdaterEnglish(wordlength, saveFile);
 		}
 		
-		System.out.println("CreatedURL " + createdURL);
-		try {
-			url = new URL(createdURL);
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
-		return url;
+		return updater;
 	}
+
+	protected abstract URL getURL(String composedChar, int wordLength);
+	protected abstract String nextWord();
+	protected abstract void initializeReader(Reader reader);
 	
 	public void downloadDictionary() {
-		for(char letter : abc.toCharArray()) {
-			URL url = getURL(letter, WORD_LENGTH);
-			try {
-				switch (language) {
-				case SPANISH:
-					downloadDictionarySpanish(url);
-					break;
-				case ENGLISH:
-					downloadDictionary(url);
-					break;
-				}
-			} catch (Exception e) {
-				e.printStackTrace();
-			}
-		}
-	}
-
-	private void downloadDictionarySpanish(URL url) throws IOException {
-		OutputStreamWriter fileWriter = new OutputStreamWriter(new FileOutputStream(SAVE_FILE, true), "UTF-8");
-		BufferedWriter writer = new BufferedWriter(fileWriter);
-		
+		FileWriter fileWriter = null;
+		BufferedWriter writer = null;
 		try {
-			URLConnection conn = url.openConnection();
-			InputStream is = conn.getInputStream();
-			InputStreamReader inputStream = new InputStreamReader(is, "UTF-8");
-			BufferedReader reader = new BufferedReader(inputStream);
-
-			String line;
-			while ((line = reader.readLine()) != null) {
-				Matcher m = Pattern.compile(String.format("[a-záéíóúàèìòù]{%s},", WORD_LENGTH)).matcher(line);
-					while(m.find()) {
-						String temp = m.group().replaceAll(",", "");
-						temp = temp.replaceAll("à", "á");
-						temp = temp.replaceAll("è", "é");
-						temp = temp.replaceAll("ì", "í");
-						temp = temp.replaceAll("ò", "ó");
-						temp = temp.replaceAll("ù", "ú");
-						writer.append(temp);
-						writer.append("\n");
-					}
-				}
+			URL url = null;
+			
+			fileWriter = new FileWriter(SAVE_FILE, true);
+			writer = new BufferedWriter(fileWriter);
+			for (char letter : alphabet.toCharArray()) {
+				url = getURL(letter + "", WORD_LENGTH);
+				System.out.println(url);
+				URLConnection conn = url.openConnection();
+				BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream()));
+				
+				initializeReader(reader);
+				
+				String word;
+				while ((word = nextWord()) != null) {
+					writer.append(word);
+					writer.append("\n");
+				} 
+			}
 		} catch (Exception e) {
 			e.printStackTrace();
 		} finally {
-			writer.close();
+			closeWriterQuietly(writer);
+		}
+	}
+
+	public void downloadDictionaryExtraAlphabet() {
+		OutputStreamWriter writer = null;
+		HttpURLConnection conn = null;
+		try {
+			URL url = null;
+			
+			writer = new OutputStreamWriter(new FileOutputStream(SAVE_FILE, true), "UTF-8");
+			int count = 0;
+			for (char letter : alphabet.toCharArray()) {
+				for (char letter2 : alphabet.toCharArray()) {
+					String composedChar = letter + "" + letter2;
+					url = getURL(composedChar, WORD_LENGTH);
+					System.out.println(url);
+					conn = (HttpURLConnection) url.openConnection();
+					conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/50.0.2661.103 Safari/537.36");
+					conn.setRequestMethod("GET");
+					
+					conn.connect();
+					
+					BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream(), "UTF-8"));
+					
+					initializeReader(reader);
+					String word;
+					while ((word = nextWord()) != null) {
+//						System.out.println(word);
+						writer.append(word);
+						writer.append("\n");
+					}
+				}
+			}
+		} catch (IOException e) {
+			BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getErrorStream()));
+			String line = null;
+			try {
+				while((line = reader.readLine()) != null){
+					System.out.println(line);
+				}
+			} catch (IOException e1) {
+				e1.printStackTrace();
+			}
+			e.printStackTrace();
+		} finally {
+			System.out.println("finalizing");
+			closeWriterQuietly(writer);
 		}
 	}
 	
-	private void downloadDictionary(URL url) throws IOException {
-		FileWriter fileWriter = new FileWriter(SAVE_FILE, true);
-		BufferedWriter writer = new BufferedWriter(fileWriter);
-
+	private void closeWriterQuietly(Closeable str) {
 		try {
-
-			URLConnection conn = url.openConnection();
-			InputStream is = conn.getInputStream();
-			InputStreamReader inputStream = new InputStreamReader(is);
-			BufferedReader reader = new BufferedReader(inputStream);
-
-			String line;
-			while ((line = reader.readLine()) != null) {
-				Matcher m = wordCounterRegex.matcher(line);
-
-				if (m.find()) {
-					System.out.println(m.group());
-					m.usePattern(wordsGetter);
-					while (m.find()) {
-						writer.append(m.group().replaceAll("[<>]", ""));
-						writer.append("\n");
-					}
-					break;
-				}
-			}
+			str.close();
 		} catch (Exception e) {
 			e.printStackTrace();
-		} finally {
-			writer.close();
+		}
+	}
+	
+	public static void main(String[] args) {
+		
+		String as = "<\"asd>";
+		System.out.println(as.replaceAll("[\"><]", ""));
+		System.exit(0);
+		
+		CookieManager man  = new CookieManager();
+		man.setCookiePolicy(CookiePolicy.ACCEPT_ALL);
+		CookieHandler.setDefault(man);
+		File file = new File("C:\\Ulises_codebase\\Dictionary4LettersSPANISHTEST.txt");
+		 DictionaryUpdater d =  DictionaryUpdater.getDictionaryUpdater(LANG.SPANISH, 4, file); 
+		 d.downloadDictionaryExtraAlphabet();
+		
+//		testConnection();
+	}
+	
+	
+	private static void testConnection() {
+		HttpURLConnection conn = null;
+		try {
+			URL url = new URL(
+					"http://www.palabrasque.com/buscador.php?i=ab&f=&tv=4&button=Buscar+palabras&ms=&mns=&m=&mn=&fs=0&fnl=6&fa=0&d=0");
+			System.out.println(url);
+			conn = (HttpURLConnection) url.openConnection();
+			conn.setRequestMethod("GET");
+			conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/50.0.2661.102 Safari/537.36");
+			conn.connect();
+
+			BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream()));
+			String word;
+			while ((word = reader.readLine()) != null) {
+				System.out.println(word);
+			}
+		} catch (IOException e) {
+			BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getErrorStream()));
+			String line = null;
+			
+			try {
+				System.out.println(conn.getResponseCode());
+				System.out.println(conn.getResponseMessage());
+				while ((line = reader.readLine()) != null) {
+					System.out.println(line);
+				}
+			} catch (IOException e1) {
+				e1.printStackTrace();
+			}
 		}
 	}
 }

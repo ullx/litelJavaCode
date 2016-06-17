@@ -76,7 +76,7 @@ public class WordFinder {
 				} else {
 					sb.append(grid[i][j]);
 				}
-			}
+			} 
 			sb.append("\n");
 		}
 		System.out.println(sb);

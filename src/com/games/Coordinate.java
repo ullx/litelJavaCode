@@ -1,4 +1,4 @@
-package com.cert;
+package com.games;
 
 public class Coordinate {
 	

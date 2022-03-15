@@ -6,6 +6,7 @@ import java.io.FileInputStream;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
@@ -15,14 +16,15 @@ import java.util.prefs.BackingStoreException;
 
 public class WordFinder {
 
-	private ArrayList<Coordinate> usedCoordinates = new ArrayList<Coordinate>();
-	public static String[][] GRID = null;
-	public static String[][] gridBackup = null;
-	
+	private final ArrayList<Coordinate> usedCoordinates = new ArrayList<Coordinate>();
+
+	private Grid GRID;
+	private Grid gridBackup;
+
 	//logging tools
 	private static boolean VERBOSE = false;
 	private static String CURRENT_WORD = "";
-	private static ArrayList<String> wordsToLog = new ArrayList<String>();
+	private static final ArrayList<String> wordsToLog = new ArrayList<String>();
 	static {
 		wordsToLog.add("reja");
 	}
@@ -35,46 +37,40 @@ public class WordFinder {
 	
 	//Default constructor
 	public WordFinder(String lettersGrid, int gridSize) {
-		GRID = loadGrid(lettersGrid, gridSize);
-		Utils.printGridWithCoords(GRID);
+		GRID = Grid.createGrid(lettersGrid, gridSize);
+		Grid.printGridWithCoords();
 	}
+
+
 	
 	public ArrayList<String> findWord(int letterLength, LANG language, File dictionarySourceFile) {
-		if (dictionarySourceFile.exists() == false) {
+		if (!dictionarySourceFile.exists()) {
 			try {
-				dictionarySourceFile.createNewFile();
-
-				DictionaryUpdater d = DictionaryUpdater.getDictionaryUpdater(language, letterLength, dictionarySourceFile);
-				System.out.println("Downloading dictionary "+ dictionarySourceFile);
-				d.downloadDictionaryExtraAlphabet(); //downloadDictionary();
+				if( dictionarySourceFile.createNewFile()) {
+					DictionaryUpdater d = DictionaryUpdater.getDictionaryUpdater(language, letterLength, dictionarySourceFile);
+					System.out.println("Downloading dictionary "+ dictionarySourceFile);
+					d.downloadDictionaryExtraAlphabet(); //downloadDictionary();
+				} else {
+					throw new IOException("File not created");
+				}
 			} catch (Exception e) {
 				e.printStackTrace();
 			}
 		}
-		
+
 		return findWords(dictionarySourceFile);
 	}
 	
-	private String[][] loadGrid(String letters, int size) {
-		String[][] grid = new String[size][size];
-		int charIdx = 0;
-		for (int i = 0; i < size; i++) {
-			for (int j = 0; j < size; j++) {
-				String value  =  letters.charAt(charIdx++) + ""; 
-				grid[i][j] = value;
-			}
-		}
-		return grid;
-	}
+
 	
 	private ArrayList<String> findWords(File dictionarySource) {
 		System.out.println("Using dictionary " + dictionarySource);
 		BufferedReader reader = null;
 		InputStreamReader input = null;
 		ArrayList<String> foundWords = new ArrayList<String>();
-		ArrayList<Coordinate> initialLetterStartIndex = new ArrayList<Coordinate>();
+		ArrayList<Coordinate> initialLetterStartIndex;
 		try {
-			input = new InputStreamReader(new FileInputStream(dictionarySource), "UTF-8");
+			input = new InputStreamReader(new FileInputStream(dictionarySource), StandardCharsets.UTF_8);
 			reader = new BufferedReader(input);
 			String dictionaryWord;
 			
@@ -84,8 +80,8 @@ public class WordFinder {
 				usedCoordinates.clear();
 				CURRENT_WORD = dictionaryWord;
 				boolean found = false;
-				initialLetterStartIndex = Utils.getIndexesByLetter(dictionaryWord.charAt(0), GRID);
-				for (int i = 0; i < initialLetterStartIndex.size() && found == false; i++) {
+				initialLetterStartIndex = GRID.getIndexesByLetter(dictionaryWord.charAt(0));
+				for (int i = 0; i < initialLetterStartIndex.size() && !found; i++) {
 					printLog(dictionaryWord + " "+ dictionaryWord.charAt(0) + " "+ initialLetterStartIndex.toString());
 					Coordinate coord = initialLetterStartIndex.get(i);
 					printLog("InitialCoord " + coord);
@@ -124,16 +120,16 @@ public class WordFinder {
 		String nextChar = word.charAt(0) + ""; 
 		word = word.substring(1);
 		
-		ArrayList<Coordinate> adjacentLetters = getAdjacentIndexesByLetter(baseCoor.getX_POSITION(), baseCoor.getY_POSITON(), nextChar);
+		ArrayList<Coordinate> adjacentLetters = GRID.getAdjacentIndexesByLetter(baseCoor.getX_POSITION(), baseCoor.getY_POSITON(), nextChar);
 		printLog("Adjacent Free letters " + nextChar + adjacentLetters.toString());
 		boolean found2 = false;
-		for (int i = 0 ; found2 == false && i < adjacentLetters.size(); i++) {
+		for (int i = 0; !found2 && i < adjacentLetters.size(); i++) {
 			Coordinate coord = adjacentLetters.get(i);
 			usedCoordinates.add(coord);
 			
 			printLog("Adding to used " + nextChar + coord);
 			found2 = findWord(word, coord, true);
-			if(found2 == false ) {
+			if(!found2) {
 				 usedCoordinates.remove(coord);
 				 if(VERBOSE){printLog("Removing from used " + nextChar + coord);}
 			}
@@ -143,12 +139,11 @@ public class WordFinder {
 	}
 
 	public ArrayList<ArrayList<Coordinate>> findWordPaths(String word) {
-		ArrayList<Coordinate> initialLetterStartIndex = Utils.getIndexesByLetter(word.charAt(0), GRID);
+		ArrayList<Coordinate> initialLetterStartIndex = GRID.getIndexesByLetter(word.charAt(0));
 		ArrayList<ArrayList<Coordinate>> paths = new ArrayList<ArrayList<Coordinate>>();
 		
 		boolean found = false;
-		for (int i = 0; i < initialLetterStartIndex.size() ; i++) {
-			Coordinate coord = initialLetterStartIndex.get(i);
+		for (Coordinate coord : initialLetterStartIndex) {
 			printLog("InitialCoord " + coord);
 
 			usedCoordinates.add(coord);
@@ -170,13 +165,12 @@ public class WordFinder {
 		
 		String nextChar = word.charAt(0) + "";
 		
-		ArrayList<Coordinate> neighbors = getAdjacentIndexesByLetter(baseCoord.getX_POSITION(), baseCoord.getY_POSITON(), nextChar);
+		ArrayList<Coordinate> neighbors = GRID.getAdjacentIndexesByLetter(baseCoord.getX_POSITION(), baseCoord.getY_POSITON(), nextChar);
 		boolean found = false;
 		
 		if (neighbors.size() > 1) {
 			// it has different paths from here.
-			for (int i = 0; i < neighbors.size(); i++) {
-				Coordinate current = neighbors.get(i);
+			for (Coordinate current : neighbors) {
 				usedCoordinates.add(current);
 				found = findWordPaths(word.substring(1, word.length()), current, paths);
 				if (found) {
@@ -198,95 +192,11 @@ public class WordFinder {
 		return found;
 	}
 	
-	public void removeCordinatesFromGRID(ArrayList<Coordinate> toMark) {
-		Iterator<Coordinate> it = toMark.iterator();
-		while(it.hasNext()) {
-			Coordinate c = it.next();
-			GRID[c.getX_POSITION()][c.getY_POSITON()] = "-";
-		}
-		setDownCoords();
-	}
-	
-	private void setDownCoords() {
-		for (int i = 0; i < GRID.length; i++) {
-			for(int j = 0; j < GRID.length; j++) {
-				Coordinate co = new Coordinate(i, j);
-				setDownCoords(co);
-			}
-		}
-	}
-	
-	private void setDownCoords(Coordinate baseCoord) {
-//		System.out.println("setDownCoords " + baseCoord + " " + baseCoord.getX_POSITION() + " " + GRID[baseCoord.getX_POSITION()][baseCoord.getY_POSITON()]);
-		Coordinate above = getAboveNeighbour(baseCoord);
-		if(above == null) {
-			return ;
-		} else {
-			String charToMoveDown = GRID[above.getX_POSITION()][above.getY_POSITON()];
-			String currentChar = GRID[baseCoord.getX_POSITION()][baseCoord.getY_POSITON()];
-			
-			if(currentChar.equals("-")) {
-				GRID[baseCoord.getX_POSITION()][baseCoord.getY_POSITON()] = charToMoveDown;
-				GRID[above.getX_POSITION()][above.getY_POSITON()] = "-";	
-			}
-			setDownCoords(above);
-		}
-	}
-	
-	public Coordinate getAboveNeighbour(Coordinate coor) {
-		int baseX = coor.getX_POSITION();
-		int baseY = coor.getY_POSITON();
-		Coordinate aboveCoord = null;
-		for(int i = 0; i < GRID.length && aboveCoord == null; i++) {
-			for (int j = 0; j < GRID.length && aboveCoord == null; j++) {
-				try {
-					if(i == baseX - 1 && j == baseY) {
-						aboveCoord =  new Coordinate(i,j);
-					}
-				} catch (IndexOutOfBoundsException e) {
-//					e.printStackTrace();
-				}
-			}
-		}
-		return aboveCoord;
-	}
-	
-	public ArrayList<Coordinate> getAdjacentIndexesByLetter(int x, int y, String charToFind) {
-		ArrayList<Coordinate> cords = new ArrayList<Coordinate>();
-		
-		for (int dx = -1; dx <= 1; ++dx) {
-			for (int dy = -1; dy <= 1; ++dy) {
-				try {
-					if (dx != 0 || dy != 0) {
-						String ch = GRID[x + dx][y + dy];
-						Integer[] newPosition = new Integer[] { x + dx, y + dy };
-						Coordinate coordinate = new Coordinate(newPosition);
-						if (ch.equals(charToFind) && usedCoordinates.contains(coordinate) == false) {
-							cords.add(coordinate);
-						}
-					}
-				} catch (IndexOutOfBoundsException e) {
-					// System.out.println("Out of bounds");
-				}
-			}
-		}
-		return cords;
-	}
 
-	private static String[][] doGridBackup(String[][] original) {
-		String[][] backup = new String[original.length][original.length];
-		for(int i = 0; i < original.length; i++) {
-			for(int j = 0; j < original.length; j++) {
-				backup[i][j] = new String(original[i][j]);
-			}
-		}
-		return backup;
-	}
-	
-	private static void findWords1 (WordFinder wordFinder, String optionalDictionaryPath, LANG lang, int wordLength) {
+	private void findWords1 ( String optionalDictionaryPath, LANG lang, int wordLength) {
 		try {
 			File dictionarySourceFile = getSourceFile(optionalDictionaryPath, lang, wordLength);
-			ArrayList<String> words = wordFinder.findWord(wordLength, lang, dictionarySourceFile);
+			ArrayList<String> words = findWord(wordLength, lang, dictionarySourceFile);
 			for(String word : words) {
 				System.out.println("Found word " + word);
 			}
@@ -296,14 +206,14 @@ public class WordFinder {
 		}
 	}
 	
-	private static void findPaths1 (String word , WordFinder wordFinder) {
+	private void findPaths1 (String word ) {
 		
-		ArrayList<ArrayList<Coordinate>> paths = wordFinder.findWordPaths(word);
+		ArrayList<ArrayList<Coordinate>> paths = findWordPaths(word);
 		System.out.println();
 		for(int i = 0; i < paths.size(); i++) {
 			ArrayList<Coordinate> co = paths.get(i);
 			System.out.println("Num " + i);
-			Utils.printAndMarkCoordsInGrid(GRID, co);
+			Grid.printAndMarkCoordsInGrid(co, GRID);
 		}
 		
 		Scanner scan = new Scanner(System.in);
@@ -311,16 +221,16 @@ public class WordFinder {
 		
 		ArrayList<Coordinate> coords = paths.get(selection);
 		System.out.println("Will remove coords " + coords);
-		wordFinder.removeCordinatesFromGRID(coords);
-		Utils.printGridWithoutCoords(GRID);
-		Utils.printFlatGrid(GRID);
+		GRID.removeCordinatesFromGRID(coords);
+		Grid.printGridWithoutCoords(GRID);
+		Grid.printFlatGrid(GRID);
 	}
 	
 	private String[][] cloneGrid(String[][] backup) {
 		return WordFinder.doGridBackup(backup);
 	}
 	
-	private static boolean resolveGrid(ArrayList<Integer> wordLengths, WordFinder wordFinder, LANG lang) throws IOException {
+	private boolean resolveGrid(ArrayList<Integer> wordLengths, WordFinder wordFinder, LANG lang) throws IOException {
 		/*
 		 * getPossibleWords
 		 * 
@@ -340,44 +250,42 @@ public class WordFinder {
 		boolean resolved = false;
 		
 		int wordLength = wordLengths.get(0);
-		File dictionarySourceFile = getSourceFile(null, lang, wordLength);
+		File dictionarySourceFile =  new File("C:\\Users\\ulise\\Projects\\litelJavaCode\\src\\resource\\esp-dic.txt"); //getSourceFile(null, lang, wordLength);
 		ArrayList<String> possibleWords = wordFinder.findWord(wordLength, lang, dictionarySourceFile);
 		System.out.println("Possible words for grid ");
-		Utils.printGridWithCoords(GRID);
+		Grid.printGridWithCoords();
 		System.out.println("possible words " + possibleWords.size());
-		
-		Iterator<String> it = possibleWords.iterator();
-		
-		while(it.hasNext()) {
+
+		for (String possibleWord : possibleWords) {
 			wordFinder.usedCoordinates.clear();
-			String word = it.next();
+			String word = possibleWord;
 			System.out.println("looking for paths of word " + word);
 			CURRENT_WORD = word;
 			ArrayList<ArrayList<Coordinate>> paths = wordFinder.findWordPaths(word);
-			System.out.println("word " + word + " paths "  + paths.size()+ " coords " + paths);
-			if(paths.size() == 0) {
+			System.out.println("word " + word + " paths " + paths.size() + " coords " + paths);
+			if (paths.size() == 0) {
 				//return to see if the past word has another path
 				//do that path and then try again with the next word.
 				continue;
 			}
 			String[][] tempBack = null;
 			resolved = false;
-			
-			for(int j = 0; j < paths.size() && resolved == false; j++) {
+
+			for (int j = 0; j < paths.size() && !resolved; j++) {
 				ArrayList<Coordinate> pathCords = paths.get(j);
 
 				System.out.println("Creating tempBack");
 				tempBack = wordFinder.cloneGrid(GRID);
-				Utils.printGridWithCoords(tempBack);
-				
-				wordFinder.removeCordinatesFromGRID(pathCords);
-				
+				Grid.printGridWithCoords();
+
+				GRID.removeCordinatesFromGRID(pathCords);
+
 				System.out.println("Current GRID AFTER remove coordinates");
-				Utils.printGridWithCoords(GRID);
+				Grid.printGridWithCoords(GRID);
 				int removed = wordLengths.remove(0);
 				System.out.println("removed " + removed);
 				resolved = resolveGrid(wordLengths, wordFinder, lang);
-				if(resolved) {
+				if (resolved) {
 //					resolvedWords.add(word);  
 					System.out.println("PRINT OMG " + word);
 					return resolved;
@@ -385,8 +293,8 @@ public class WordFinder {
 					wordLengths.add(0, removed);
 					System.out.println("Reseting grid");
 					GRID = wordFinder.cloneGrid(tempBack); // wordFinder.resetGrid();
-					Utils.printGridWithCoords(gridBackup);
-					Utils.printGridWithCoords(GRID);
+					Grid.printGridWithCoords(gridBackup);
+					Grid.printGridWithCoords(GRID);
 				}
 				System.out.println("Trying another path for " + word);
 			}
@@ -405,7 +313,7 @@ public class WordFinder {
 	}
 	
 	private static File getSourceFile(String dictionaryPath, LANG lang, int wordLength) throws IOException {
-		String defaultPath = "C:\\Ulises_codebase";
+		String defaultPath = "esp-dic.txt";
 		String defaultDictionaryPath = String.format("Dictionary%sLetters", wordLength);
 		if (lang == LANG.SPANISH) {
 			defaultDictionaryPath += "Spanish";
@@ -425,7 +333,7 @@ public class WordFinder {
 			File dictionaryDir = new File(defaultPath);
 			dictionarySourceFile = new File(dictionaryDir,defaultDictionaryPath);
 		}
-		
+
 		return dictionarySourceFile;
 	}
 
@@ -447,26 +355,28 @@ public class WordFinder {
 		System.out.println("word     The word that will be taken to find ways to create it.");
 		System.exit(0);
 	}
-	
+
+
+
 	public static void main(String[] args) throws IOException {
-		
+
 		//eoaagohbollocnvailraltfrmbcocditrlao
-//		args =  new String[]{"findWords", "alo-psd-run-ofa-", "4", "8", "s"};
-		
+		args = new String[]{"findWords", "imaeracde", "3", "4", "s", "C:\\Users\\ulise\\Projects\\litelJavaCode\\src\\resource\\esp-dic.txt"};
+
 		/**
-		 * 
+		 *
 		 * l--ra--ev--ja--a
-		 * 
-		 * posible words 3 
-		 * word aval paths 0 coords [] 
+		 *
+		 * posible words 3
+		 * word aval paths 0 coords []
 		 * word lava paths 0 coords []
 		 * word reja paths 1 coords [[[2,0], [0,3], [1,3], [2,3], [3,3]]]
 		 */
-		
-//		args =  new String[]{"resolveGrid", "l--ra--ev--ja--a", "4", "4,4", "s"};
+
+//		args =  new String[]{"resolveGrid", "l--ra--ev--ja--a", "4", "4,4", "s","esp-dic.txt"};
 //		args =  new String[]{"resolveGrid", "horairalrezllano", "4", "4,6,6", "s"};
-		args =  new String[]{"resolveGrid", "pirckathniidnosw", "4", "6,5,5", "e"};
-		
+		//args =  new String[]{"resolveGrid", "pirckathniidnosw", "4", "6,5,5", "e"};
+
 		//work in progress
 		//4,5
 		//boca,mundo
@@ -474,62 +384,59 @@ public class WordFinder {
 		//bate, músculo, ancla
 //		args =  new String[]{"resolveGrid", "meaaúotbslanuclc", "4", "4,7,5", "s"};
 //		args =  new String[]{"resolveGrid", "learaneevmijahca", "4", "8,4,4", "s"};
-		
-		
-		Integer[] numeros = new Integer[10];
-		Integer[] numeros2 = new Integer[]{1,2,3,4};
-		
-		
-		numeros[4] = 10;
-		Integer value = numeros[9];
-		
-		
-		int cIdx = 0;
-		if (args == null || args.length < 3) {
-			System.err.println("Not enough arguments.");
+
+//		args =  new String[]{"resolveGrid", "learaneevmijahca", "4", "8,4,4", "s"};
+
+
+		CommandInterpreter interpreter = null;
+		try {
+			interpreter = CommandInterpreter.interpretCommands(args);
+		} catch (WrongCommandsException e) {
+			e.printStackTrace();
 			printUsage();
 		}
 
-		String command = args[cIdx++];
-		String lettersGrid = args[cIdx++];
-		int gridSize = Integer.parseInt(args[cIdx++]);
-		System.out.println("lettersGrid " + lettersGrid);
-		System.out.println("gridSize " + gridSize);
-		
-		WordFinder wordFinder = new WordFinder(lettersGrid, gridSize);
-		if(command.equalsIgnoreCase("findWords")) {
+		WordFinder wordFinder = new WordFinder(interpreter.getLettersGrid(),interpreter.getGridSize());
+		wordFinder.run(args);
+	}
+
+	public void run(String[] args) {
+
+		if("findWords".equalsIgnoreCase(command)) {
 			int wordLength = Integer.parseInt(args[cIdx++]);
+			System.out.println("wordLength = " + wordLength);
 			String optionalDictionaryPath = null;
 			LANG lang = LANG.getEnum(args[cIdx++]);
-			
+			System.out.println("lang = " + lang);
+
 			if(args.length >= 6) {
 				optionalDictionaryPath = args[cIdx++];
 			}
-			
-			findWords1(wordFinder, optionalDictionaryPath, lang, wordLength);
+
+			findWords1(, optionalDictionaryPath, lang, wordLength);
 		} else if(command.equalsIgnoreCase("findPaths")) {
 			String word = args[cIdx++];
 			findPaths1(word, wordFinder);
 		} else if(command.equals("resolveGrid")) {
-			String[] sWordLenghts = args[cIdx++].split(",");
-			ArrayList<Integer> wordLenths = new ArrayList<Integer>();
-			
-			for (int i = 0; i < sWordLenghts.length; i++) {
+			String[] sWordLengths = args[cIdx++].split(",");
+			ArrayList<Integer> wordLengths = new ArrayList<Integer>();
+
+			for (int i = 0; i < sWordLengths.length; i++) {
 				try {
-					wordLenths.add(Integer.parseInt(sWordLenghts[i]));
+					wordLengths.add(Integer.parseInt(sWordLengths[i]));
 				} catch (Exception e) {
-					System.out.println("Error parsing passed lengths " + wordLenths.get(i));
+					System.out.println("Error parsing passed lengths " + wordLengths.get(i));
 				}
 			}
-			gridBackup =  doGridBackup(GRID);
+			gridBackup =  Grid.cloneGrid(GRID); // doGridBackup(GRID);
 //			gridBackup = Arrays.copyOf(GRID, GRID.length);
 			LANG lang = LANG.getEnum(args[cIdx++]);
 			try {
-				WordFinder.resolveGrid(wordLenths, wordFinder, lang);
+				WordFinder.resolveGrid(wordLengths, wordFinder, lang);
 			} catch (IOException e) {
 				e.printStackTrace();
 			}
-			
+
 		}
 	}
 }

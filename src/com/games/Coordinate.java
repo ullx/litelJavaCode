@@ -1,5 +1,8 @@
 package com.games;
 
+import java.util.ArrayList;
+import java.util.Iterator;
+
 public class Coordinate {
 	
 	private int X_POSITION = 0;
@@ -62,5 +65,16 @@ public class Coordinate {
 			return false;
 		return true;
 	}
-	
+
+
+	public static boolean lookCoordinate(ArrayList<Coordinate> list, Coordinate coord) {
+		Iterator<Coordinate> it = list.iterator();
+		while(it.hasNext()) {
+			Coordinate co = it.next();
+			if(co.equals(coord)){
+				return true;
+			}
+		}
+		return false;
+	}
 }

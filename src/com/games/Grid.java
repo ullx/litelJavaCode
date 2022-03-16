@@ -1,6 +1,7 @@
 package com.games;
 
 import java.util.ArrayList;
+import java.util.Iterator;
 
 public class Grid {
 
@@ -60,15 +61,15 @@ public class Grid {
         return aboveCoord;
     }
 
-    public static String[][] cloneGrid(Grid originalGrid) {
-        String[][] original = originalGrid.getGrid();
-        String[][] backup = new String[original.length][original.length];
-        for(int i = 0; i < original.length; i++) {
-            for(int j = 0; j < original.length; j++) {
-                backup[i][j] = new String(original[i][j]);
-            }
-        }
-        return backup;
+    public Grid cloneGrid() throws CloneNotSupportedException {
+//        String[][] original = originalGrid.getGrid();
+//        String[][] backup = new String[original.length][original.length];
+//        for(int i = 0; i < original.length; i++) {
+//            for(int j = 0; j < original.length; j++) {
+//                backup[i][j] = new String(original[i][j]);
+//            }
+//        }
+        return (Grid) this.clone();
     }
 
     public ArrayList<Coordinate> getAdjacentIndexesByLetter(int x, int y, String charToFind) {
@@ -81,9 +82,10 @@ public class Grid {
                         String ch = GRID[x + dx][y + dy];
                         Integer[] newPosition = new Integer[] { x + dx, y + dy };
                         Coordinate coordinate = new Coordinate(newPosition);
-                        if (ch.equals(charToFind) && !usedCoordinates.contains(coordinate)) {
-                            cords.add(coordinate);
-                        }
+                        // TODO: commented this just to test but need to uncomment this and fix
+//                        if (ch.equals(charToFind) && !usedCoordinates.contains(coordinate)) {
+//                            cords.add(coordinate);
+//                        }
                     }
                 } catch (IndexOutOfBoundsException e) {
                     // System.out.println("Out of bounds");
@@ -102,7 +104,7 @@ public class Grid {
                 grid[i][j] = value;
             }
         }
-        return new;
+        this.GRID = grid;
     }
 
     public static void printGridWithCoords(Grid grid) {
@@ -126,7 +128,7 @@ public class Grid {
         String[][] ggrid = grid.getGrid();
         for (int i = 0; i < ggrid.length; i++) {
             for (int j = 0; j < ggrid.length; j++) {
-                if(markCoords != null && lookCoordinate(markCoords, new Coordinate(i,j))) {
+                if(markCoords != null && Coordinate.lookCoordinate(markCoords, new Coordinate(i,j))) {
                     sb.append("*");
                 }
                 if(withCoords) {

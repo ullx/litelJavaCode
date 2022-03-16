@@ -3,23 +3,22 @@ package com.games;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Iterator;
 import java.util.Scanner;
-import java.util.prefs.BackingStoreException;
 
 
 public class WordFinder {
 
 	private final ArrayList<Coordinate> usedCoordinates = new ArrayList<Coordinate>();
 
+
 	private Grid GRID;
 	private Grid gridBackup;
+
+	private static CommandInterpreter inputCommands;
 
 	//logging tools
 	private static boolean VERBOSE = false;
@@ -38,7 +37,7 @@ public class WordFinder {
 	//Default constructor
 	public WordFinder(String lettersGrid, int gridSize) {
 		GRID = Grid.createGrid(lettersGrid, gridSize);
-		Grid.printGridWithCoords();
+		Grid.printGridWithCoords(GRID);
 	}
 
 
@@ -60,7 +59,6 @@ public class WordFinder {
 
 		return findWords(dictionarySourceFile);
 	}
-	
 
 	
 	private ArrayList<String> findWords(File dictionarySource) {
@@ -226,11 +224,11 @@ public class WordFinder {
 		Grid.printFlatGrid(GRID);
 	}
 	
-	private String[][] cloneGrid(String[][] backup) {
-		return WordFinder.doGridBackup(backup);
-	}
+//	private String[][] cloneGrid(String[][] backup) {
+//		return doGridBackup(backup);
+//	}
 	
-	private boolean resolveGrid(ArrayList<Integer> wordLengths, WordFinder wordFinder, LANG lang) throws IOException {
+	private boolean resolveGrid(ArrayList<Integer> wordLengths, LANG lang) throws IOException, CloneNotSupportedException {
 		/*
 		 * getPossibleWords
 		 * 
@@ -251,32 +249,32 @@ public class WordFinder {
 		
 		int wordLength = wordLengths.get(0);
 		File dictionarySourceFile =  new File("C:\\Users\\ulise\\Projects\\litelJavaCode\\src\\resource\\esp-dic.txt"); //getSourceFile(null, lang, wordLength);
-		ArrayList<String> possibleWords = wordFinder.findWord(wordLength, lang, dictionarySourceFile);
+		ArrayList<String> possibleWords = findWord(wordLength, lang, dictionarySourceFile);
 		System.out.println("Possible words for grid ");
-		Grid.printGridWithCoords();
+		Grid.printGridWithCoords(GRID);
 		System.out.println("possible words " + possibleWords.size());
 
 		for (String possibleWord : possibleWords) {
-			wordFinder.usedCoordinates.clear();
+			usedCoordinates.clear();
 			String word = possibleWord;
 			System.out.println("looking for paths of word " + word);
 			CURRENT_WORD = word;
-			ArrayList<ArrayList<Coordinate>> paths = wordFinder.findWordPaths(word);
+			ArrayList<ArrayList<Coordinate>> paths = findWordPaths(word);
 			System.out.println("word " + word + " paths " + paths.size() + " coords " + paths);
 			if (paths.size() == 0) {
 				//return to see if the past word has another path
 				//do that path and then try again with the next word.
 				continue;
 			}
-			String[][] tempBack = null;
+			Grid tempBack = null;
 			resolved = false;
 
 			for (int j = 0; j < paths.size() && !resolved; j++) {
 				ArrayList<Coordinate> pathCords = paths.get(j);
 
 				System.out.println("Creating tempBack");
-				tempBack = wordFinder.cloneGrid(GRID);
-				Grid.printGridWithCoords();
+				tempBack = GRID.cloneGrid();
+				Grid.printGridWithCoords(tempBack);
 
 				GRID.removeCordinatesFromGRID(pathCords);
 
@@ -284,7 +282,7 @@ public class WordFinder {
 				Grid.printGridWithCoords(GRID);
 				int removed = wordLengths.remove(0);
 				System.out.println("removed " + removed);
-				resolved = resolveGrid(wordLengths, wordFinder, lang);
+				resolved = resolveGrid(wordLengths, lang);
 				if (resolved) {
 //					resolvedWords.add(word);  
 					System.out.println("PRINT OMG " + word);
@@ -292,7 +290,7 @@ public class WordFinder {
 				} else {
 					wordLengths.add(0, removed);
 					System.out.println("Reseting grid");
-					GRID = wordFinder.cloneGrid(tempBack); // wordFinder.resetGrid();
+					GRID = tempBack.cloneGrid(); // wordFinder.resetGrid();
 					Grid.printGridWithCoords(gridBackup);
 					Grid.printGridWithCoords(GRID);
 				}
@@ -338,27 +336,27 @@ public class WordFinder {
 	}
 
 	private static void printUsage() {
-		System.out.println("java -jar WordFinder.jar <command> lettersGrid gridSize <otherCopmmandsDependingOn FirstCommand>" );
+		System.out.println("java -jar WordFinder.jar <command> lettersGrid gridSize <otherCommandsDependingOn FirstCommand>" );
 		//lettersGrid gridSize wordLength language[e|s] [dictionaryDirPath]\n");
-		System.out.println(" findWords needs: lettersGrid gridSize wordLength language optional:FilePath<Not tested in this version>");
-		System.out.println(" findPaths needs: lettersGrid gridSize word");
-		System.out.println("lettersGrid  Required string of letters where the words are");
+		System.out.println(" <findWords> needs: [lettersGrid] [gridSize] [wordLength] [language] optional:FilePath<Not tested in this version>");
+		System.out.println(" <findPaths> needs: [lettersGrid] [gridSize] [word]");
+		System.out.println("lettersGrid:  Required string of letters where the words are");
 		System.out.println("             are to be found.");
-		System.out.println("wordLength   Required a number indicating the length of");
+		System.out.println("wordLength:   Required a number indicating the length of");
 		System.out.println("             the word to find." );
-		System.out.println("gridSize     Required just a number indicating the size");
+		System.out.println("gridSize:     Required just a number indicating the size");
 		System.out.println("             of the grid, if the grid is of 3x3 just put 3.");
-		System.out.println("language     Required [e|s] e: english s: spanish.");
+		System.out.println("language:     Required [e|s] e: english s: spanish.");
 		System.out.println("[dictionaryDirPath]  Optional the path to a Dir where to");
 		System.out.println("                    find the dictionaries or a path to");
 		System.out.println("                    a file to use as dictionary.");
-		System.out.println("word     The word that will be taken to find ways to create it.");
+		System.out.println("word:    The word that will be taken to find ways to create it.");
 		System.exit(0);
 	}
 
 
 
-	public static void main(String[] args) throws IOException {
+	public static void main(String[] args) throws IOException, CloneNotSupportedException {
 
 		//eoaagohbollocnvailraltfrmbcocditrlao
 		args = new String[]{"findWords", "imaeracde", "3", "4", "s", "C:\\Users\\ulise\\Projects\\litelJavaCode\\src\\resource\\esp-dic.txt"};
@@ -388,37 +386,34 @@ public class WordFinder {
 //		args =  new String[]{"resolveGrid", "learaneevmijahca", "4", "8,4,4", "s"};
 
 
-		CommandInterpreter interpreter = null;
 		try {
-			interpreter = CommandInterpreter.interpretCommands(args);
+			inputCommands = CommandInterpreter.interpretCommands(args);
 		} catch (WrongCommandsException e) {
 			e.printStackTrace();
 			printUsage();
 		}
 
-		WordFinder wordFinder = new WordFinder(interpreter.getLettersGrid(),interpreter.getGridSize());
-		wordFinder.run(args);
+//		WordFinder wordFinder = new WordFinder(inputCommands.getLettersGrid(), inputCommands.getGridSize());
+//		wordFinder.run();
 	}
 
-	public void run(String[] args) {
+	public void run() throws CloneNotSupportedException {
 
-		if("findWords".equalsIgnoreCase(command)) {
-			int wordLength = Integer.parseInt(args[cIdx++]);
+		if(inputCommands.command == CommandInterpreter.Command.FIND_WORDS) {
+			int wordLength = Integer.parseInt(inputCommands.getWordLength());
 			System.out.println("wordLength = " + wordLength);
 			String optionalDictionaryPath = null;
-			LANG lang = LANG.getEnum(args[cIdx++]);
+			LANG lang = LANG.getEnum(inputCommands.getLang());
 			System.out.println("lang = " + lang);
 
-			if(args.length >= 6) {
-				optionalDictionaryPath = args[cIdx++];
-			}
+			optionalDictionaryPath = inputCommands.getDicPath();
 
-			findWords1(, optionalDictionaryPath, lang, wordLength);
-		} else if(command.equalsIgnoreCase("findPaths")) {
-			String word = args[cIdx++];
-			findPaths1(word, wordFinder);
-		} else if(command.equals("resolveGrid")) {
-			String[] sWordLengths = args[cIdx++].split(",");
+			findWords1(optionalDictionaryPath, lang, wordLength);
+		} else if(CommandInterpreter.Command.FIND_PATHS ==  inputCommands.command) {
+			String word = inputCommands.getWord();
+			findPaths1(word);
+		} else if(CommandInterpreter.Command.RESOLVE_GRID ==  inputCommands.command) {
+			String[] sWordLengths =  inputCommands.getWordLength().split(",");
 			ArrayList<Integer> wordLengths = new ArrayList<Integer>();
 
 			for (int i = 0; i < sWordLengths.length; i++) {
@@ -428,11 +423,11 @@ public class WordFinder {
 					System.out.println("Error parsing passed lengths " + wordLengths.get(i));
 				}
 			}
-			gridBackup =  Grid.cloneGrid(GRID); // doGridBackup(GRID);
+			gridBackup =  GRID.cloneGrid(); // doGridBackup(GRID);
 //			gridBackup = Arrays.copyOf(GRID, GRID.length);
-			LANG lang = LANG.getEnum(args[cIdx++]);
+			LANG lang = LANG.getEnum(inputCommands.getLang());
 			try {
-				WordFinder.resolveGrid(wordLengths, wordFinder, lang);
+				resolveGrid(wordLengths, lang);
 			} catch (IOException e) {
 				e.printStackTrace();
 			}

@@ -7,6 +7,12 @@ public class Grid {
 
     private String[][] GRID = null;
     private String[][] gridBackup = null;
+    private final ArrayList<Coordinate> usedCoordinates = new ArrayList<Coordinate>();
+
+
+    public ArrayList<Coordinate> getUsedCoordinates() {
+        return usedCoordinates;
+    }
 
     public static Grid createGrid(String letters, int size) {
         return new Grid(letters, size);
@@ -83,9 +89,9 @@ public class Grid {
                         Integer[] newPosition = new Integer[] { x + dx, y + dy };
                         Coordinate coordinate = new Coordinate(newPosition);
                         // TODO: commented this just to test but need to uncomment this and fix
-//                        if (ch.equals(charToFind) && !usedCoordinates.contains(coordinate)) {
-//                            cords.add(coordinate);
-//                        }
+                        if (ch.equals(charToFind) && !usedCoordinates.contains(coordinate)) {
+                            cords.add(coordinate);
+                        }
                     }
                 } catch (IndexOutOfBoundsException e) {
                     // System.out.println("Out of bounds");

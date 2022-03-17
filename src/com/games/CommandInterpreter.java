@@ -7,7 +7,7 @@ public class CommandInterpreter {
     String word;
     String lang;
     String dicPath;
-    String wordLength;
+    Integer wordLength;
     String lettersGrid;
 
     Integer gridSize;
@@ -33,7 +33,7 @@ public class CommandInterpreter {
         return gridSize;
     }
 
-    public String getWordLength() {
+    public Integer getWordLength() {
         return wordLength;
     }
 
@@ -64,7 +64,7 @@ public class CommandInterpreter {
         this.gridSize = Integer.parseInt(args[2]);
 
         if(Command.FIND_WORDS == command) {
-            this.wordLength = args[3];
+            this.wordLength = Integer.parseInt(args[3]);
             this.lang = args[4];
             if(args.length > 5) {
                 this.dicPath = args[5];
@@ -72,13 +72,6 @@ public class CommandInterpreter {
         } else if (Command.FIND_PATHS == command) {
             this.word = args[3];
         }
-
-
-
-
-
-
-
 
         System.out.println("this.toString() = " + this);
     }
